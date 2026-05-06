@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Smart Parking Dashboard</title>
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Segoe UI',sans-serif;
+}
+body{
+    background:#f4f6f9;
+}
+.main{
+    display:flex;
+    height:100vh;
+}
+.sidebar{
+    width:220px;
+    background:#1f2937;
+    color:white;
+    padding:20px;
+}
+.sidebar h2{
+    margin-bottom:20px;
+}
+.content{
+    flex:1;
+    padding:20px;
+}
+.cards{
+    display:flex;
+    gap:15px;
+}
+.card{
+    flex:1;
+    background:white;
+    padding:15px;
+    border-radius:10px;
+    box-shadow:0 4px 10px rgba(0,0,0,0.1);
+    text-align:center;
+}
+.parking{
+    margin-top:20px;
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:15px;
+}
+.slot{
+    padding:15px;
+    border-radius:10px;
+    text-align:center;
+    color:white;
+    cursor:pointer;
+}
+.available{ background:#22c55e; }
+.occupied{ background:#ef4444; }
+
+.search{
+    margin-top:15px;
+}
+input{
+    padding:10px;
+    width:250px;
+    border-radius:8px;
+    border:1px solid #ccc;
+}
+.notification{
+    position:fixed;
+    top:20px;
+    right:20px;
+    background:#111;
+    color:white;
+    padding:10px 20px;
+    border-radius:8px;
+    display:none;
+}
+</style>
+</head>
+<body>
+<div class="main">
+
+    <div class="sidebar">
+        <h2>Parking System</h2>
+        <p>🚗 Smart Dashboard</p>
+    </div>
+
+    <div class="content">
+
+        <h1>Dashboard</h1>
+
+        <div class="cards">
+            <div class="card">Total Slots<br><b id="total"></b></div>
+            <div class="card">Occupied<br><b id="occupied"></b></div>
+            <div class="card">Available<br><b id="available"></b></div>
+            <div class="card">Revenue ₹<br><b id="revenue"></b></div>
+        </div>
+        <div class="search">
+            <input type="text" placeholder="Search vehicle..." onkeyup="searchVehicle(this.value)">
+        </div>
+        <div class="parking" id="parking"></div>
+
+    </div>
+</div>
+<div class="notification" id="note"></div>
+<script>
+let totalSlots = 20;
+let slots = JSON.parse(localStorage.getItem("parking")) || 
+Array.from({length: totalSlots}, () => ({
+    status:"available",
+    vehicle:"",
+    startTime:null
+}));
+function save(){
+    localStorage.setItem("parking", JSON.stringify(slots));
+}
+function notify(msg){
+    let n = document.getElementById("note");
+    n.innerText = msg;
+    n.style.display="block";
+    setTimeout(()=> n.style.display="none",2000);
+}
+function toggleSlot(index){
+    let slot = slots[index];
+    if(slot.status === "available"){
+        let vehicle = prompt("Enter Vehicle Number:");
+        if(!vehicle) return;
+
+        slot.status = "occupied";
+        slot.vehicle = vehicle;
+        slot.startTime = new Date();
+        notify("Vehicle Parked");
+    }else{
+        let end = new Date();
+        let duration = Math.floor((end - new Date(slot.startTime))/60000);
+        let cost = duration * 2; // ₹2 per minute
+
+        notify(`Removed | Time: ${duration} min | ₹${cost}`);
+
+        slot.status = "available";
+        slot.vehicle = "";
+        slot.startTime = null;
+    }
+    save();
+    render();
+}
+function render(){
+    let container = document.getElementById("parking");
+    container.innerHTML="";
+
+    slots.forEach((s,i)=>{
+        let div = document.createElement("div");
+        div.className = "slot " + s.status;
+
+        div.innerHTML = `
+        <b>Slot ${i+1}</b><br>
+        ${s.vehicle || "Empty"}
+        `;
+
+        div.onclick = ()=> toggleSlot(i);
+        container.appendChild(div);
+    });
+    updateStats();
+}
+function updateStats(){
+    let occupied = slots.filter(s=>s.status==="occupied").length;
+    let revenue = slots.reduce((sum,s)=>{
+        if(s.startTime){
+            let mins = (new Date()-new Date(s.startTime))/60000;
+            return sum + Math.floor(mins*2);
+        }
+        return sum;
+    },0);
+    document.getElementById("total").innerText = totalSlots;
+    document.getElementById("occupied").innerText = occupied;
+    document.getElementById("available").innerText = totalSlots - occupied;
+    document.getElementById("revenue").innerText = revenue;
+}
+function searchVehicle(value){
+    value = value.toLowerCase();
+    let container = document.getElementById("parking").children;
+
+    slots.forEach((s,i)=>{
+        if(s.vehicle.toLowerCase().includes(value)){
+            container[i].style.border="3px solid yellow";
+        }else{
+            container[i].style.border="none";
+        }
+    });
+}
+setInterval(updateStats,5000);
+render();
+</script>
+</body>
+</html>
